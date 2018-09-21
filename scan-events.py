@@ -168,6 +168,19 @@ def get_existing_events(service):
     existing_events = events_result.get('items', [])
     return existing_events
 
+def filter_existing_events(existing_events, queried_events):
+    """
+    Given a list of existing events on the Calendar, remove these from the
+    queried list from the BSA site so events aren't duplicated on the calendar!
+    """
+
+    # Some what lazy, but list sizes are small (< 10)
+    for existing_event in existing_events:
+        for queried_event in queried_events:
+            if existing_event['summary'] == queried_event['summary']:
+                queried_events.remove(queried_event)
+
+    return queried_events
 
 def insert_event(service, event):
     """
@@ -185,18 +198,22 @@ def manipulate_events(queried_events):
     """
     Handles interaction with the Calendar API given a list of scrapped events
     """
+
     # Auth with the API
     service = auth()
 
-    # DELETE ALL THE EXISTING EVENTS
+    # Get all existing events on the calendar
     existing_events = get_existing_events(service)
-    [ delete_event(service, event) for event in existing_events ]
 
-    # INSERT EVENTS
-    [ insert_event(service, event) for event in queried_events ]
+    # Remove these from the scrapped events
+    filtered_events = filter_existing_events(existing_events, queried_events)
 
-    print("Finished. Please wait for the Calendar to update :)")
-    sys.exit(0)
+    # Insert events otherwise report there are no events to add
+    if filtered_events:
+        [ insert_event(service, event) for event in filtered_events ]
+        print("Finished. Please wait for the Calendar to update :)")
+    else:
+        print("No events to add the calendaer :)")
 
 
 if __name__ == '__main__':
